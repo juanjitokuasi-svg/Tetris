@@ -41,7 +41,7 @@
       radial-gradient(120% 90% at 50% 10%, transparent 60%, rgba(0,0,0,.35) 100%);
     mix-blend-mode: overlay; opacity:.35;
   }
-  canvas{ image-rendering: pixelated; background:#000; border:2px solid #888; }
+  canvas{ image-rendering: pixelated; background:#000; border:2px solid #888; touch-action:none; }
   #board{ width:300px; height:600px; }
   #side{ width: 260px; display:grid; gap:12px }
   .panel{
@@ -79,6 +79,8 @@
   #start p{ font-size:12px; opacity:.9; line-height:1.7; }
   #start .row{ margin-top:10px }
   .hint{ font-size:10px; opacity:.85; }
+  /* iOS “tap delay” off for botones y overlay */
+  button, #start { touch-action: manipulation; }
   @media (max-width: 860px){
     #frame{ flex-direction:column; align-items:center }
     #side{ width:auto }
@@ -97,10 +99,10 @@
         <div class="stat"><span>Líneas</span><b id="lines">0</b></div>
         <div class="stat"><span>Nivel</span><b id="level">1</b></div>
         <div class="row" style="margin-top:8px">
-          <button id="btnStart">▶️ Iniciar</button>
-          <button id="btnPause">⏸ Pausa</button>
-          <button id="btnMute">🔊 Música</button>
-          <button id="btnReset">↻ Reiniciar</button>
+          <button id="btnStart" type="button">▶️ Iniciar</button>
+          <button id="btnPause" type="button">⏸ Pausa</button>
+          <button id="btnMute"  type="button">🔊 Música</button>
+          <button id="btnReset" type="button">↻ Reiniciar</button>
         </div>
       </div>
       <div class="panel" id="miniWrap">
@@ -115,23 +117,23 @@
         </div>
       </div>
       <div id="controls" class="row" style="margin-top:6px">
-        <button id="left">←</button>
-        <button id="rotate">⟳</button>
-        <button id="right">→</button>
-        <button id="soft">↓</button>
-        <button id="hard">⤓</button>
-        <button id="holdBtn">H</button>
+        <button id="left"  type="button">←</button>
+        <button id="rotate"type="button">⟳</button>
+        <button id="right" type="button">→</button>
+        <button id="soft"  type="button">↓</button>
+        <button id="hard"  type="button">⤓</button>
+        <button id="holdBtn" type="button">H</button>
       </div>
     </div>
     <div id="crt"></div>
     <div id="start">
       <div class="box">
         <h1>Press Start</h1>
-        <p>Retro + moderno: música chiptune, efectos, hold, ghost, puntuación, nivel, récord, bolsa de 7 y SRS básico.  
+        <p>Retro + moderno: música chiptune, efectos, hold, ghost, puntuación, nivel, récord, bolsa de 7 y SRS básico.
         <br>Juega con teclado o táctil (tap = rotar, swipe ←/→ = mover, swipe ↓ = caer, doble-tap = caída dura).</p>
         <div class="row">
-          <button id="bigStart">▶️ Empezar</button>
-          <button id="bigMute">🔇 Silencio</button>
+          <button id="bigStart" type="button">▶️ Empezar</button>
+          <button id="bigMute"  type="button">🔇 Silencio</button>
         </div>
         <div class="hint" style="margin-top:10px">Consejo: añade esta página a tu pantalla de inicio para modo app.</div>
       </div>
@@ -157,11 +159,8 @@
     S:[[0,6,6],[6,6,0],[0,0,0]],
     Z:[[7,7,0],[0,7,7],[0,0,0]],
   };
-  // SRS kicks mínimos (comunes + especiales para I)
-  const KICKS = {
-    normal: [[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]],
-    I: [[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]]
-  };
+  const KICKS = { normal:[[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]],
+                  I:[[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]] };
 
   // ======== State/UI ========
   const board = document.getElementById('board'), ctx = board.getContext('2d');
@@ -173,13 +172,9 @@
   const btnReset = document.getElementById('btnReset'), btnMute = document.getElementById('btnMute');
   const startLayer = document.getElementById('start'), bigStart = document.getElementById('bigStart'), bigMute = document.getElementById('bigMute');
   const statsDiv = document.getElementById('stats');
-  const mobile = {
-    left:document.getElementById('left'), right:document.getElementById('right'),
-    rotate:document.getElementById('rotate'), soft:document.getElementById('soft'),
-    hard:document.getElementById('hard'), hold:document.getElementById('holdBtn')
-  };
+  const mobile = { left:$('#left'), right:$('#right'), rotate:$('#rotate'), soft:$('#soft'), hard:$('#hard'), hold:$('#holdBtn') };
+  function $(id){ return document.getElementById(id); }
 
-  // Visual scale for mini canvases
   const MINI_CELL = 18;
 
   let grid, active, bag, nextPiece, held=null, usedHold=false;
@@ -188,7 +183,6 @@
   let paused=true, started=false, over=false;
   let last=0, dropCounter=0;
 
-  // Stats counter per piece
   const pieceCount = {T:0,O:0,L:0,J:0,I:0,S:0,Z:0};
 
   // ======== Audio ========
@@ -206,34 +200,30 @@
     btnMute.textContent = v?'🔇 Silencio':'🔊 Música';
     bigMute.textContent = v?'🔇 Silencio':'🔊 Música';
   }
-  // Simple chiptune loop (inspirado, no copia 1:1)
   function startMusic() {
     if (!audioCtx) initAudio();
     stopMusic();
-    const tempo=140; // BPM
-    const beat=60/tempo;
-    const seq = [0,0,7,5,  0,2,9,7,  0,0,7,5,  4,5,7,9]; // grados relativos
-    const base = 261.63; // C4
-    const t0 = audioCtx.currentTime + .05; let t=t0;
-    songTimer = setInterval(()=>{ /* keep alive */ }, (beat*1000)*16);
+    const tempo=140, beat=60/tempo;
+    const seq=[0,0,7,5,0,2,9,7,0,0,7,5,4,5,7,9]; // grados relativos
+    const base=261.63;
+    const t0=audioCtx.currentTime+.05; let t=t0;
+    songTimer=setInterval(()=>{}, beat*1000*16);
     for (let i=0;i<64;i++){
-      const step = seq[i%seq.length];
-      const f = base * Math.pow(2, step/12);
+      const f = base*Math.pow(2, (seq[i%seq.length])/12);
       tone(f, beat*.42, 'square', .08, t, musicGain);
-      // bajo
-      tone(base/2*Math.pow(2, (i%4===0?0:-5)/12), beat*.48, 'triangle', .06, t, musicGain);
-      t += beat;
+      tone(base/2*Math.pow(2,(i%4===0?0:-5)/12), beat*.48,'triangle', .06, t, musicGain);
+      t+=beat;
     }
   }
   function stopMusic(){ if (songTimer){ clearInterval(songTimer); songTimer=null; } }
-  function tone(freq, dur, type, gain, when, dest){
-    const t = when ?? audioCtx.currentTime;
-    const osc = audioCtx.createOscillator();
-    const vol = audioCtx.createGain();
-    osc.type = type; osc.frequency.value = freq;
-    vol.gain.setValueAtTime(0, t);
-    vol.gain.linearRampToValueAtTime(gain, t+.01);
-    vol.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+  function tone(freq,dur,type,gain,when,dest){
+    const t = when ?? (audioCtx?audioCtx.currentTime:0);
+    if (!audioCtx) return;
+    const osc=audioCtx.createOscillator(), vol=audioCtx.createGain();
+    osc.type=type; osc.frequency.value=freq;
+    vol.gain.setValueAtTime(0,t);
+    vol.gain.linearRampToValueAtTime(gain,t+.01);
+    vol.gain.exponentialRampToValueAtTime(0.0001,t+dur);
     osc.connect(vol).connect(dest||sfxGain);
     osc.start(t); osc.stop(t+dur+.02);
   }
@@ -248,31 +238,25 @@
   };
 
   // ======== Helpers ========
-  const rnd = n => Math.floor(Math.random()*n);
-  const clone = o => JSON.parse(JSON.stringify(o));
-  const speedForLevel = l => Math.max(SPEED_MIN, 950 - (l-1)*85);
+  const rnd=n=>Math.floor(Math.random()*n);
+  const clone=o=>JSON.parse(JSON.stringify(o));
+  const speedForLevel=l=>Math.max(SPEED_MIN, 950 - (l-1)*85);
 
-  function refillBag(){
-    bag = TYPES.slice();
-    for (let i=bag.length-1;i>0;i--){ const j=rnd(i+1); [bag[i],bag[j]]=[bag[j],bag[i]]; }
-  }
-  function newPiece(type){
-    const shape = clone(SHAPES[type]);
-    return {type, shape, x: Math.floor((COLS-shape[0].length)/2), y: -2, r:0};
-  }
+  function refillBag(){ bag=TYPES.slice(); for (let i=bag.length-1;i>0;i--){ const j=rnd(i+1); [bag[i],bag[j]]=[bag[j],bag[i]]; } }
+  function newPiece(type){ const shape=clone(SHAPES[type]); return {type,shape,x:Math.floor((COLS-shape[0].length)/2),y:-2,r:0}; }
   function spawn(){
     if (!bag || bag.length===0) refillBag();
-    if (!nextPiece) { nextPiece = newPiece(bag.pop()); if (bag.length===0) refillBag(); }
-    active = nextPiece; usedHold=false;
+    if (!nextPiece){ nextPiece=newPiece(bag.pop()); if (bag.length===0) refillBag(); }
+    active=nextPiece; usedHold=false;
     if (bag.length===0) refillBag();
-    nextPiece = newPiece(bag.pop());
+    nextPiece=newPiece(bag.pop());
     pieceCount[active.type]++; renderStats();
     if (collides(0,0,active.shape)){ over=true; paused=true; sfx.over(); startLayer.style.display='grid'; startLayer.querySelector('h1').textContent='Game Over'; }
     drawMini(nctx, nextCvs, nextPiece);
     drawMini(hctx, holdCvs, held);
   }
   function reset(){
-    grid = Array.from({length:ROWS},()=>Array(COLS).fill(0));
+    grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
     score=0; lines=0; level=1; over=false;
     usedHold=false; held=null; nextPiece=null;
     last=0; dropCounter=0;
@@ -289,7 +273,7 @@
     return false;
   }
   function lock(){
-    const {shape,x,y} = active;
+    const {shape,x,y}=active;
     for (let j=0;j<shape.length;j++)
       for (let i=0;i<shape[j].length;i++)
         if (shape[j][i]){ const gy=y+j,gx=x+i; if (gy>=0) grid[gy][gx]=shape[j][i]; }
@@ -303,8 +287,8 @@
     return a;
   }
   function tryRotate(dir=1){
-    const rotated = rotate(active.shape, dir);
-    const kicks = (active.type==='I')? KICKS.I : KICKS.normal;
+    const rotated=rotate(active.shape, dir);
+    const kicks=(active.type==='I')?KICKS.I:KICKS.normal;
     for (const [kx,ky] of kicks){
       if (!collides(kx,ky,rotated)){ active.shape=rotated; active.x+=kx; active.y+=ky; sfx.rotate(); return; }
     }
@@ -324,34 +308,26 @@
       const newLevel = 1 + Math.floor(lines/10);
       if(newLevel!==level){ level=newLevel; sfx.level(); }
       if(score>hiscore){ hiscore=score; localStorage.setItem('tetris_hiscore_v2',hiscore); }
-      // pequeño flash
-      flashBoard();
-      updateUI();
+      flashBoard(); updateUI();
     }
   }
 
   function softDrop(){ if (!collides(0,1,active.shape)){ active.y++; sfx.drop(); } else lock(); }
-  function hardDrop(){
-    let dist=0; while(!collides(0,1,active.shape)){ active.y++; dist++; }
-    score += 2*dist; lock(); updateUI();
-  }
+  function hardDrop(){ let d=0; while(!collides(0,1,active.shape)){ active.y++; d++; } score+=2*d; lock(); updateUI(); }
   function hold(){
     if (usedHold) return;
     const cur=active;
     if (!held){ held=newPiece(cur.type); active=nextPiece; if (bag.length===0) refillBag(); nextPiece=newPiece(bag.pop()); }
     else { const swap=held.type; held=newPiece(cur.type); active=newPiece(swap); }
-    active.x = Math.floor((COLS-active.shape[0].length)/2); active.y=-2; usedHold=true;
+    active.x=Math.floor((COLS-active.shape[0].length)/2); active.y=-2; usedHold=true;
     if (collides(0,0,active.shape)) { over=true; paused=true; sfx.over(); startLayer.style.display='grid'; }
     drawMini(hctx, holdCvs, held); drawMini(nctx, nextCvs, nextPiece); updateUI();
   }
 
   // ======== Rendering ========
   function drawCell(x,y,val){
-    const color = COLORS[val];
-    if (!color) return;
-    // base
+    const color=COLORS[val]; if(!color) return;
     ctx.fillStyle=color; ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
-    // brillo/vincette
     ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(x*CELL,y*CELL,CELL,4);
     ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fillRect(x*CELL+CELL-4,y*CELL,4,CELL);
   }
@@ -361,21 +337,13 @@
   }
   function drawBoard(){
     ctx.clearRect(0,0,board.width,board.height);
-    // Fijas
     for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(grid[y][x]) drawCell(x,y,grid[y][x]);
-
-    // Ghost
     let gy=active.y; while(!collides(0,1,active.shape)) gy++;
     ctx.globalAlpha=.25; drawPiece(active.x, gy, active.shape); ctx.globalAlpha=1;
-
-    // Activa
     drawPiece(active.x, active.y, active.shape);
-
-    // Rejilla sutil
     ctx.strokeStyle='rgba(255,255,255,.05)'; ctx.lineWidth=1;
     for(let x=1;x<COLS;x++){ ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,ROWS*CELL); ctx.stroke(); }
     for(let y=1;y<ROWS;y++){ ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(COLS*CELL,y*CELL); ctx.stroke(); }
-
     if (paused){
       ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,board.width,board.height);
       ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='bold 20px "Press Start 2P", monospace';
@@ -386,32 +354,22 @@
     ctx2.clearRect(0,0,cvs.width,cvs.height);
     if (!piece) return;
     const s=piece.shape, w=s[0].length, h=s.length;
-    const ox = Math.floor((cvs.width/MINI_CELL - w)/2);
-    const oy = Math.floor((cvs.height/MINI_CELL - h)/2);
+    const ox=Math.floor((cvs.width/MINI_CELL - w)/2), oy=Math.floor((cvs.height/MINI_CELL - h)/2);
     for(let y=0;y<h;y++) for(let x=0;x<w;x++) if (s[y][x]) {
-      // cell
-      ctx2.fillStyle = COLORS[s[y][x]];
+      ctx2.fillStyle=COLORS[s[y][x]];
       ctx2.fillRect((ox+x)*MINI_CELL,(oy+y)*MINI_CELL,MINI_CELL,MINI_CELL);
       ctx2.fillStyle='rgba(255,255,255,.08)'; ctx2.fillRect((ox+x)*MINI_CELL,(oy+y)*MINI_CELL,MINI_CELL,3);
       ctx2.fillStyle='rgba(0,0,0,.2)'; ctx2.fillRect((ox+x)*MINI_CELL+MINI_CELL-3,(oy+y)*MINI_CELL,3,MINI_CELL);
     }
   }
-  function updateUI(){
-    elScore.textContent=score; elLines.textContent=lines; elLevel.textContent=level; elHi.textContent=hiscore;
-    btnPause.textContent = paused? (over?'Reiniciar':'Reanudar') : '⏸ Pausa';
-  }
-  function renderStats(){
-    const order=['T','O','L','J','I','S','Z'];
-    statsDiv.innerHTML = order.map(k=>`${k}: ${String(pieceCount[k]).padStart(3,'0')}`).join('<br>');
-  }
-  function flashBoard(){
-    board.style.filter='brightness(1.5)'; setTimeout(()=>board.style.filter='',120);
-  }
+  function updateUI(){ elScore.textContent=score; elLines.textContent=lines; elLevel.textContent=level; elHi.textContent=hiscore; btnPause.textContent = paused? (over?'Reiniciar':'Reanudar') : '⏸ Pausa'; }
+  function renderStats(){ const order=['T','O','L','J','I','S','Z']; statsDiv.innerHTML = order.map(k=>`${k}: ${String(pieceCount[k]).padStart(3,'0')}`).join('<br>'); }
+  function flashBoard(){ board.style.filter='brightness(1.5)'; setTimeout(()=>board.style.filter='',120); }
 
   // ======== Loop ========
   function loop(ts=0){
-    const dt = ts - last; last=ts;
-    if (!paused && !over){
+    const dt=ts-last; last=ts;
+    if (started && !paused && !over){
       dropCounter+=dt; const speed=speedForLevel(level);
       while(dropCounter>=speed){ softDrop(); dropCounter-=speed; }
     }
@@ -419,10 +377,10 @@
     requestAnimationFrame(loop);
   }
 
-  // ======== Controls ========
+  // ======== Controles ========
   function onKey(e){
     if (!started){
-      if (e.code==='Enter' || e.code==='Space'){ startGame(); }
+      if (e.code==='Enter' || e.code==='Space') safeStart(e);
       return;
     }
     if (over && !['KeyR','Enter'].includes(e.code)) return;
@@ -441,80 +399,65 @@
   }
   window.addEventListener('keydown', onKey);
 
-  // Mobile buttons
-  const tap=(el,fn)=> el && el.addEventListener('click', fn);
+  // Botones táctiles
+  const tap=(el,fn)=> el && el.addEventListener('click', fn, {passive:false});
   tap(mobile.left, ()=>{ if(!paused && !collides(-1,0,active.shape)){ active.x--; sfx.move(); }});
-  tap(mobile.right, ()=>{ if(!paused && !collides(1,0,active.shape)){ active.x++; sfx.move(); }});
-  tap(mobile.rotate, ()=>{ if(!paused) tryRotate(1); });
+  tap(mobile.right,()=>{ if(!paused && !collides(1,0,active.shape)){ active.x++; sfx.move(); }});
+  tap(mobile.rotate,()=>{ if(!paused) tryRotate(1); });
   tap(mobile.soft, ()=>{ if(!paused){ softDrop(); score++; updateUI(); }});
   tap(mobile.hard, ()=>{ if(!paused) hardDrop(); });
   tap(mobile.hold, ()=>{ if(!paused) hold(); });
 
-  // Gestos en el canvas
+  // Gestos canvas
   let t0=null, lastTap=0;
   board.addEventListener('touchstart', (e)=>{
     e.preventDefault();
     const t=e.changedTouches[0]; t0={x:t.clientX,y:t.clientY,time:Date.now()};
-    if (Date.now()-lastTap<300){ if(!paused) hardDrop(); } // doble tap
+    if (Date.now()-lastTap<300){ if(!paused && started) hardDrop(); } // doble-tap
     lastTap=Date.now();
   }, {passive:false});
   board.addEventListener('touchend',(e)=>{
     e.preventDefault(); if(!t0) return;
     const t=e.changedTouches[0]; const dx=t.clientX-t0.x, dy=t.clientY-t0.y;
     const ax=Math.abs(dx), ay=Math.abs(dy), TH=22;
-    if (ax<TH && ay<TH){ if(!paused) tryRotate(1); } // tap = rotar
+    if (!started) return;
+    if (ax<TH && ay<TH){ if(!paused) tryRotate(1); }
     else if (ax>ay){ if(!paused && !collides(dx>0?1:-1,0,active.shape)){ active.x+=dx>0?1:-1; sfx.move(); } }
     else { if(!paused){ softDrop(); score++; updateUI(); } }
     t0=null;
   }, {passive:false});
 
-// ======== Start/Pause/Reset/Mute ========
-function safeStart(e){
-  if (e) { try{ e.preventDefault(); }catch{} }
-  if (started) return;
-
-  // 1) Oculta la pantalla de inicio de inmediato
-  startLayer.style.display = 'none';
-
-  // 2) Arranca el juego
-  started = true;
-  paused = false;
-  over = false;
-  reset();
-  updateUI();
-
-  // 3) Inicia audio sin romper si Safari lo bloquea
-  try {
-    initAudio();
-    if (!muted && audioCtx.state === 'suspended') audioCtx.resume();
-    if (!muted) startMusic();
-  } catch (err) {
-    // Si el audio falla, no bloquea el juego
-    console.log('Audio bloqueado por el navegador:', err);
-    setMuted(true);
+  // ======== Start/Pause/Reset/Mute (robusto iOS) ========
+  function safeStart(e){
+    try{ e && e.preventDefault && e.preventDefault(); }catch{}
+    if (started) return;
+    startLayer.style.display='none';
+    started=true; paused=false; over=false;
+    reset(); updateUI();
+    try{
+      initAudio();
+      if (!muted && audioCtx.state==='suspended') audioCtx.resume();
+      if (!muted) startMusic();
+    }catch(err){
+      console.log('Audio bloqueado:', err); setMuted(true);
+    }
+    if (!last) requestAnimationFrame(loop);
   }
+  // Bind a click y touchend (iOS exige gesto del usuario)
+  function bindStart(el){
+    if (!el) return;
+    el.addEventListener('click', safeStart, {passive:false});
+    el.addEventListener('touchend', safeStart, {passive:false});
+  }
+  bindStart(btnStart); bindStart(bigStart);
+  btnPause.addEventListener('click', ()=>{ if (over){ reset(); return; } paused=!paused; updateUI(); });
+  btnReset.addEventListener('click', ()=> reset());
+  btnMute .addEventListener('click', ()=> setMuted(!muted));
+  bigMute .addEventListener('click', ()=> setMuted(!muted));
 
-  if (!last) requestAnimationFrame(loop);
-}
-
-// Botones (click + touch para iOS)
-const bindStart = el => {
-  if (!el) return;
-  el.addEventListener('click', safeStart);
-  el.addEventListener('touchend', safeStart, {passive:false});
-};
-bindStart(btnStart);
-bindStart(bigStart);
-
-btnPause.onclick = ()=> { if (over){ reset(); return; } paused = !paused; updateUI(); };
-btnReset.onclick = ()=> reset();
-btnMute.onclick  = ()=> setMuted(!muted);
-bigMute.onclick  = ()=> setMuted(!muted);
-
-// Fallback: Enter o Space también inician
-window.addEventListener('keydown', (e)=>{
-  if (!started && (e.code==='Enter' || e.code==='Space')) safeStart(e);
-});
+  // Loop inicial
+  requestAnimationFrame(loop);
+})();
 </script>
 </body>
 </html>
