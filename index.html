@@ -468,24 +468,53 @@
     t0=null;
   }, {passive:false});
 
-  // ======== Start/Pause/Reset/Mute ========
-  function startGame(){
-    started=true; paused=false; over=false;
-    startLayer.style.display='none';
-    initAudio(); if (!muted) { audioCtx.resume&&audioCtx.resume(); startMusic(); }
-    reset(); updateUI();
-    if (!last) requestAnimationFrame(loop);
-  }
-  btnStart.onclick = ()=> { if(!started) startGame(); };
-  bigStart.onclick = ()=> { if(!started) startGame(); };
-  btnPause.onclick = ()=> { if (over){ reset(); return; } paused=!paused; updateUI(); };
-  btnReset.onclick = ()=> reset();
-  btnMute.onclick = ()=> setMuted(!muted);
-  bigMute.onclick = ()=> setMuted(!muted);
+// ======== Start/Pause/Reset/Mute ========
+function safeStart(e){
+  if (e) { try{ e.preventDefault(); }catch{} }
+  if (started) return;
 
-  // kick off render loop
-  requestAnimationFrame(loop);
-})();
+  // 1) Oculta la pantalla de inicio de inmediato
+  startLayer.style.display = 'none';
+
+  // 2) Arranca el juego
+  started = true;
+  paused = false;
+  over = false;
+  reset();
+  updateUI();
+
+  // 3) Inicia audio sin romper si Safari lo bloquea
+  try {
+    initAudio();
+    if (!muted && audioCtx.state === 'suspended') audioCtx.resume();
+    if (!muted) startMusic();
+  } catch (err) {
+    // Si el audio falla, no bloquea el juego
+    console.log('Audio bloqueado por el navegador:', err);
+    setMuted(true);
+  }
+
+  if (!last) requestAnimationFrame(loop);
+}
+
+// Botones (click + touch para iOS)
+const bindStart = el => {
+  if (!el) return;
+  el.addEventListener('click', safeStart);
+  el.addEventListener('touchend', safeStart, {passive:false});
+};
+bindStart(btnStart);
+bindStart(bigStart);
+
+btnPause.onclick = ()=> { if (over){ reset(); return; } paused = !paused; updateUI(); };
+btnReset.onclick = ()=> reset();
+btnMute.onclick  = ()=> setMuted(!muted);
+bigMute.onclick  = ()=> setMuted(!muted);
+
+// Fallback: Enter o Space también inician
+window.addEventListener('keydown', (e)=>{
+  if (!started && (e.code==='Enter' || e.code==='Space')) safeStart(e);
+});
 </script>
 </body>
 </html>
