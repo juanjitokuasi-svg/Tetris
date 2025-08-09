@@ -1,313 +1,146 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Tetris — Retro+ NES (estable)</title>
-<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<style>
-  :root{ --panel:#121416; --edge:#6ecfe4; --text:#e9f1f7; --scan:rgba(255,255,255,.06); }
-  *{box-sizing:border-box} html,body{height:100%}
-  body{margin:0; background:linear-gradient(#171b20,#0b0e11); color:var(--text);
-       font-family:'Press Start 2P',system-ui,-apple-system,sans-serif; display:grid; place-items:center;}
-  #frame{position:relative; display:flex; gap:18px; align-items:flex-start; padding:16px; border:4px solid #7aa4b0;
-         box-shadow:0 0 0 4px #3a4c54 inset,0 0 0 8px #9fe9ff inset,0 0 24px #57d7ff,0 0 120px #009ec2;}
-  canvas{image-rendering:pixelated; background:#000; border:2px solid #888; touch-action:none}
-  #board{width:300px;height:600px} #side{width:260px;display:grid;gap:12px}
-  .panel{background:var(--panel); border:3px solid #7aa4b0; box-shadow:0 0 0 3px var(--edge) inset,0 0 0 6px #1e323a inset; padding:12px;}
-  .title{text-align:center;margin:-2px 0 8px;letter-spacing:2px}
-  .stat{display:flex;justify-content:space-between;margin:6px 0}
-  #miniWrap{display:flex;gap:10px} #next,#hold{width:120px;height:120px;background:#000;border:2px solid #7aa4b0}
-  #stats{font-size:12px;line-height:1.6} .row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
-  button{cursor:pointer;padding:10px 12px;border-radius:10px;border:2px solid #4c9fb3;background:#0c1419;color:var(--text);font:inherit}
-  button:active{transform:translateY(1px)} #controls{display:none;gap:10px;flex-wrap:wrap;justify-content:center}
-  #controls button{width:64px;height:64px;font-size:22px;border-radius:14px}
-  #start{position:absolute;inset:0;display:grid;place-items:center;padding:16px;background:rgba(0,0,0,.72);text-align:center}
-  #start .box{background:#0a0f12;border:3px solid #7aa4b0;box-shadow:0 0 0 3px var(--edge) inset,0 0 0 6px #1e323a inset;padding:18px;max-width:520px}
-  .hint{font-size:10px;opacity:.85} button,#start{touch-action:manipulation}
-  @media (max-width:860px){#frame{flex-direction:column;align-items:center}#side{width:auto}#controls{display:flex}}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Juego tipo Mario en Canvas</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #8B4513;
+        }
+    </style>
 </head>
 <body>
-  <div id="frame">
-    <canvas id="board" width="300" height="600"></canvas>
-    <div id="side">
-      <div class="panel">
-        <div class="title">TETRIS — RETRO+</div>
-        <div class="stat"><span>Puntos</span><b id="score">0</b></div>
-        <div class="stat"><span>Récord</span><b id="hiscore">0</b></div>
-        <div class="stat"><span>Líneas</span><b id="lines">0</b></div>
-        <div class="stat"><span>Nivel</span><b id="level">1</b></div>
-        <div class="row" style="margin-top:8px">
-          <button id="btnStart">▶️ Iniciar</button>
-          <button id="btnPause">⏸ Pausa</button>
-          <button id="btnMute">🔇 Silencio</button>
-          <button id="btnReset">↻ Reiniciar</button>
-        </div>
-      </div>
-      <div class="panel" id="miniWrap">
-        <div style="width:50%"><div style="text-align:center;margin-bottom:6px">Siguiente</div><canvas id="next" width="120" height="120"></canvas></div>
-        <div style="width:50%"><div style="text-align:center;margin-bottom:6px">Hold</div><canvas id="hold" width="120" height="120"></canvas></div>
-      </div>
-      <div class="panel">
-        <div style="text-align:center;margin-bottom:6px">Estadísticas</div>
-        <div id="stats"></div>
-        <div class="hint" style="margin-top:8px">←/→ mover, ↑ rotar, ↓ caer, Espacio caída dura, C hold, P pausa, M mute.</div>
-      </div>
-      <div id="controls" class="row" style="margin-top:6px">
-        <button id="left">←</button><button id="rotate">⟳</button><button id="right">→</button>
-        <button id="soft">↓</button><button id="hard">⤓</button><button id="holdBtn">H</button>
-      </div>
-    </div>
+    <canvas id="gameCanvas"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
 
-    <div id="start">
-      <div class="box">
-        <h2>Press Start</h2>
-        <p>Tap en “Empezar”. Si no, arranca solo en 2s (audio silenciado por defecto).</p>
-        <div class="row"><button id="bigStart">▶️ Empezar</button><button id="bigMute">🔇 Silencio</button></div>
-        <div class="hint" style="margin-top:10px">Gestos: tap = rotar, swipe ←/→ = mover, swipe ↓ = caer, doble-tap = caída dura.</div>
-      </div>
-    </div>
-  </div>
+        // Configuración del tamaño del canvas
+        canvas.width = 800;
+        canvas.height = 400;
 
-<script>
-(()=>{ 'use strict';
-/* ---------- Util ---------- */
-const $=id=>document.getElementById(id);
-const COLS=10, ROWS=20, CELL=30, SPEED_MIN=90, MINI=18;
-const COLORS={1:'#B84DFF',2:'#22D6FF',3:'#34F58E',4:'#8B9BFF',5:'#00F5FF',6:'#D6FF58',7:'#FF5A6E'};
-const TYPES=['T','O','L','J','I','S','Z'];
-const SHAPES={T:[[0,0,0],[1,1,1],[0,1,0]],O:[[2,2],[2,2]],L:[[0,3,0],[0,3,0],[0,3,3]],
-             J:[[0,4,0],[0,4,0],[4,4,0]],I:[[0,5,0,0],[0,5,0,0],[0,5,0,0],[0,5,0,0]],
-             S:[[0,6,6],[6,6,0],[0,0,0]],Z:[[7,7,0],[0,7,7],[0,0,0]]};
-const KICKS={normal:[[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]],
-             I:[[0,0],[1,0],[-1,0],[2,0],[-2,0],[0,-1],[1,-1],[-1,-1]]};
-const rnd=n=>Math.floor(Math.random()*n);
-const clone=o=>JSON.parse(JSON.stringify(o));
-const speed=lv=>Math.max(SPEED_MIN,950-(lv-1)*85);
+        // Variables del jugador
+        const player = {
+            x: 50,
+            y: canvas.height - 150,
+            width: 50,
+            height: 50,
+            speed: 5,
+            dx: 0,
+            dy: 0,
+            gravity: 0.8,
+            jumpPower: -15,
+            grounded: false,
+        };
 
-/* ---------- Canvas/UI ---------- */
-const board=$('board'), ctx=board.getContext('2d');
-const ncv=$('next'), nctx=ncv.getContext('2d');
-const hcv=$('hold'), hctx=hcv.getContext('2d');
-const elScore=$('score'), elLines=$('lines'), elLevel=$('level'), elHi=$('hiscore');
-const statsDiv=$('stats');
-const startLayer=$('start');
-const btnStart=$('btnStart'), btnPause=$('btnPause'), btnReset=$('btnReset'), btnMute=$('btnMute');
-const bigStart=$('bigStart'), bigMute=$('bigMute');
-const m={left:$('left'),right:$('right'),rotate:$('rotate'),soft:$('soft'),hard:$('hard'),hold:$('holdBtn')};
+        // Variables de la plataforma
+        const platforms = [
+            { x: 0, y: canvas.height - 50, width: canvas.width, height: 50 }, // Suelo
+            { x: 200, y: 250, width: 200, height: 20 }, // Plataforma 1
+            { x: 500, y: 200, width: 200, height: 20 }, // Plataforma 2
+        ];
 
-/* ---------- Estado ---------- */
-let grid, active, bag, nextPiece, held=null, usedHold=false;
-let score=0, lines=0, level=1, hiscore=+localStorage.getItem('tetris_hiscore_v2')||0;
-elHi.textContent=hiscore;
-let started=false, paused=true, over=false, last=0, drop=0;
-const count={T:0,O:0,L:0,J:0,I:0,S:0,Z:0};
+        // Control de las teclas
+        let keys = {
+            right: false,
+            left: false,
+            up: false,
+        };
 
-/* ---------- Audio (silenciado por defecto) ---------- */
-let audioCtx, master, musicGain, sfxGain, muted=true, keepTimer=null;
-function initAudio(){
-  if (audioCtx) return;
-  audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-  master=audioCtx.createGain(); master.gain.value=.9; master.connect(audioCtx.destination);
-  musicGain=audioCtx.createGain(); musicGain.gain.value=muted?0:.25; musicGain.connect(master);
-  sfxGain=audioCtx.createGain(); sfxGain.gain.value=muted?0:.35; sfxGain.connect(master);
-}
-function setMuted(v){ muted=v; if(!audioCtx) return; musicGain.gain.value=v?0:.25; sfxGain.gain.value=v?0:.35;
-  btnMute.textContent=v?'🔇 Silencio':'🔊 Música'; bigMute.textContent=btnMute.textContent; }
-function tone(f,d,t,g,when,dest){
-  if(!audioCtx) return;
-  const st=when??audioCtx.currentTime, osc=audioCtx.createOscillator(), vol=audioCtx.createGain();
-  osc.type=t; osc.frequency.value=f; vol.gain.setValueAtTime(0,st); vol.gain.linearRampToValueAtTime(g,st+.01);
-  vol.gain.exponentialRampToValueAtTime(0.0001,st+d); osc.connect(vol).connect(dest||sfxGain); osc.start(st); osc.stop(st+d+.02);
-}
-function startMusic(){
-  try{
-    initAudio(); if(audioCtx.state==='suspended') audioCtx.resume();
-    clearInterval(keepTimer);
-    const bpm=140, beat=60/bpm, seq=[0,0,7,5,0,2,9,7,0,0,7,5,4,5,7,9], base=261.63;
-    let t=audioCtx.currentTime+.05;
-    keepTimer=setInterval(()=>{}, beat*1000*16);
-    for(let i=0;i<64;i++){
-      const f=base*Math.pow(2, seq[i%seq.length]/12);
-      tone(f, beat*.42,'square',.08,t,musicGain);
-      tone(base/2*Math.pow(2,(i%4===0?0:-5)/12), beat*.48,'triangle',.06,t,musicGain);
-      t+=beat;
-    }
-  }catch{}
-}
-const sfx={move:()=>tone(900,.03,'square',.08),
-  rotate:()=>tone(1200,.04,'triangle',.09),
-  lock:()=>tone(220,.07,'sawtooth',.12),
-  line:n=>{tone(600,.06,'square',.12); if(n>=4)setTimeout(()=>tone(900,.08,'square',.12),80);},
-  level:()=>tone(1500,.12,'square',.15),
-  drop:()=>tone(150,.02,'square',.06),
-  over:()=>{tone(200,.18,'square',.2); setTimeout(()=>tone(120,.25,'sawtooth',.18),150);}};
+        // Función para actualizar el estado del jugador
+        function update() {
+            // Movimiento del jugador
+            if (keys.right) {
+                player.dx = player.speed;
+            } else if (keys.left) {
+                player.dx = -player.speed;
+            } else {
+                player.dx = 0;
+            }
 
-/* ---------- Core ---------- */
-function refill(){ bag=TYPES.slice(); for(let i=bag.length-1;i>0;i--){const j=rnd(i+1);[bag[i],bag[j]]=[bag[j],bag[i]];} }
-function newPiece(t){ const s=clone(SHAPES[t]); return {type:t,shape:s,x:Math.floor((COLS-s[0].length)/2),y:-2}; }
-function spawn(){
-  if(!bag||!bag.length) refill();
-  if(!nextPiece){ nextPiece=newPiece(bag.pop()); if(!bag.length) refill(); }
-  active=nextPiece; usedHold=false;
-  if(!bag.length) refill(); nextPiece=newPiece(bag.pop());
-  count[active.type]++; renderStats();
-  if(collides(0,0,active.shape)){ over=true; paused=true; sfx.over(); startLayer.style.display='grid'; $('bigStart').textContent='Reintentar'; }
-  drawMini(nctx,ncv,nextPiece); drawMini(hctx,hcv,held);
-}
-function reset(){
-  grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
-  score=0; lines=0; level=1; over=false; usedHold=false; held=null; nextPiece=null; last=0; drop=0;
-  refill(); spawn(); updateUI();
-}
-function collides(ox,oy,shape){
-  const h=shape.length,w=shape[0].length;
-  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(shape[y][x]){
-    const nx=active.x+x+ox, ny=active.y+y+oy;
-    if(nx<0||nx>=COLS||ny>=ROWS) return true;
-    if(ny>=0 && grid[ny][nx]) return true;
-  }
-  return false;
-}
-function lock(){
-  const {shape,x,y}=active;
-  for(let j=0;j<shape.length;j++) for(let i=0;i<shape[j].length;i++) if(shape[j][i]){
-    const gy=y+j,gx=x+i; if(gy>=0) grid[gy][gx]=shape[j][i];
-  }
-  sfx.lock(); clearLines(); spawn();
-}
-function rot(m,dir){ const a=clone(m); for(let y=0;y<a.length;y++) for(let x=0;x<y;x++) [a[x][y],a[y][x]]=[a[y][x],a[x][y]];
-  return dir>0?(a.forEach(r=>r.reverse()),a):(a.reverse(),a); }
-function tryRotate(dir=1){
-  const r=rot(active.shape,dir), ks=(active.type==='I')?KICKS.I:KICKS.normal;
-  for(const [kx,ky] of ks){ if(!collides(kx,ky,r)){ active.shape=r; active.x+=kx; active.y+=ky; sfx.rotate(); return; } }
-}
-function clearLines(){
-  let c=0;
-  outer: for(let y=ROWS-1;y>=0;y--){
-    for(let x=0;x<COLS;x++) if(!grid[y][x]) continue outer;
-    grid.splice(y,1); grid.unshift(Array(COLS).fill(0)); c++; y++;
-  }
-  if(c){
-    const table=[0,100,300,500,800];
-    score+=table[c]*level; lines+=c; sfx.line(c);
-    const nl=1+Math.floor(lines/10); if(nl!==level){ level=nl; sfx.level(); }
-    if(score>hiscore){ hiscore=score; localStorage.setItem('tetris_hiscore_v2',hiscore); }
-    flash(); updateUI();
-  }
-}
-function soft(){ if(!collides(0,1,active.shape)){ active.y++; sfx.drop(); } else lock(); }
-function hard(){ let d=0; while(!collides(0,1,active.shape)){ active.y++; d++; } score+=2*d; lock(); updateUI(); }
-function doHold(){
-  if(usedHold) return;
-  const cur=active;
-  if(!held){ held=newPiece(cur.type); active=nextPiece; if(!bag.length) refill(); nextPiece=newPiece(bag.pop()); }
-  else { const sw=held.type; held=newPiece(cur.type); active=newPiece(sw); }
-  active.x=Math.floor((COLS-active.shape[0].length)/2); active.y=-2; usedHold=true;
-  if(collides(0,0,active.shape)){ over=true; paused=true; sfx.over(); startLayer.style.display='grid'; }
-  drawMini(hctx,hcv,held); drawMini(nctx,ncv,nextPiece); updateUI();
-}
+            // Salto del jugador
+            if (keys.up && player.grounded) {
+                player.dy = player.jumpPower;
+                player.grounded = false;
+            }
 
-/* ---------- Render ---------- */
-function cell(x,y,v){ const c=COLORS[v]; if(!c) return;
-  ctx.fillStyle=c; ctx.fillRect(x*CELL,y*CELL,CELL,CELL);
-  ctx.fillStyle='rgba(255,255,255,.08)'; ctx.fillRect(x*CELL,y*CELL,CELL,4);
-  ctx.fillStyle='rgba(0,0,0,.15)'; ctx.fillRect(x*CELL+CELL-4,y*CELL,4,CELL);
-}
-function piece(px,py,s){ for(let y=0;y<s.length;y++) for(let x=0;x<s[y].length;x++) if(s[y][x]&&py+y>=0) cell(px+x,py+y,s[y][x]); }
-function draw(){
-  ctx.clearRect(0,0,board.width,board.height);
-  for(let y=0;y<ROWS;y++) for(let x=0;x<COLS;x++) if(grid[y][x]) cell(x,y,grid[y][x]);
-  let gy=active.y; while(!collides(0,1,active.shape)) gy++; ctx.globalAlpha=.25; piece(active.x,gy,active.shape); ctx.globalAlpha=1;
-  piece(active.x,active.y,active.shape);
-  ctx.strokeStyle='rgba(255,255,255,.05)'; for(let x=1;x<COLS;x++){ctx.beginPath();ctx.moveTo(x*CELL,0);ctx.lineTo(x*CELL,ROWS*CELL);ctx.stroke();}
-  for(let y=1;y<ROWS;y++){ctx.beginPath();ctx.moveTo(0,y*CELL);ctx.lineTo(COLS*CELL,y*CELL);ctx.stroke();}
-  if(paused){ ctx.fillStyle='rgba(0,0,0,.45)'; ctx.fillRect(0,0,board.width,board.height);
-    ctx.fillStyle='#fff'; ctx.textAlign='center'; ctx.font='bold 20px "Press Start 2P",monospace';
-    ctx.fillText(over?'GAME OVER':'PAUSA', board.width/2, board.height/2); }
-}
-function mini(ctx2,cv,p){ ctx2.clearRect(0,0,cv.width,cv.height); if(!p)return;
-  const s=p.shape,w=s[0].length,h=s.length,ox=Math.floor((cv.width/MINI-w)/2),oy=Math.floor((cv.height/MINI-h)/2);
-  for(let y=0;y<h;y++) for(let x=0;x<w;x++) if(s[y][x]){ ctx2.fillStyle=COLORS[s[y][x]];
-    ctx2.fillRect((ox+x)*MINI,(oy+y)*MINI,MINI,MINI);
-    ctx2.fillStyle='rgba(255,255,255,.08)'; ctx2.fillRect((ox+x)*MINI,(oy+y)*MINI,MINI,3);
-    ctx2.fillStyle='rgba(0,0,0,.2)'; ctx2.fillRect((ox+x)*MINI+MINI-3,(oy+y)*MINI,3,MINI); } }
-function updateUI(){ $('score').textContent=score; $('lines').textContent=lines; $('level').textContent=level; $('hiscore').textContent=hiscore;
-  $('btnPause').textContent=paused?(over?'Reiniciar':'Reanudar'):'⏸ Pausa'; }
-function renderStats(){ statsDiv.innerHTML=['T','O','L','J','I','S','Z'].map(k=>`${k}: ${String(count[k]).padStart(3,'0')}`).join('<br>'); }
-function flash(){ board.style.filter='brightness(1.5)'; setTimeout(()=>board.style.filter='',120); }
+            // Gravedad
+            player.dy += player.gravity;
 
-/* ---------- Loop ---------- */
-function loop(ts=0){
-  const dt=ts-last; last=ts;
-  if(started && !paused && !over){ drop+=dt; const sp=speed(level); while(drop>=sp){ soft(); drop-=sp; } }
-  if(started) draw();
-  requestAnimationFrame(loop);
-}
+            // Movimiento del jugador (izquierda/derecha)
+            player.x += player.dx;
+            player.y += player.dy;
 
-/* ---------- Controles ---------- */
-window.addEventListener('keydown',e=>{
-  if(!started){ if(e.code==='Enter'||e.code==='Space') startGame(); return; }
-  if(over && !['KeyR','Enter'].includes(e.code)) return;
-  switch(e.code){
-    case'ArrowLeft': if(!paused && !collides(-1,0,active.shape)){ active.x--; sfx.move(); } break;
-    case'ArrowRight': if(!paused && !collides(1,0,active.shape)){ active.x++; sfx.move(); } break;
-    case'ArrowDown': if(!paused){ soft(); score++; updateUI(); } break;
-    case'ArrowUp': if(!paused) tryRotate(1); break;
-    case'Space': if(!paused) hard(); break;
-    case'KeyC': if(!paused) doHold(); break;
-    case'KeyP': paused=!paused; updateUI(); break;
-    case'KeyM': setMuted(!muted); break;
-    case'KeyR': case'Enter': reset(); break;
-  }
-});
+            // Colisiones con las plataformas
+            player.grounded = false;
+            platforms.forEach(platform => {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y + player.height <= platform.y + player.dy &&
+                    player.y + player.height + player.dy >= platform.y) {
+                    player.dy = 0;
+                    player.y = platform.y - player.height;
+                    player.grounded = true;
+                }
+            });
 
-/* Botones táctiles */
-const bind=(el,fn)=>{ if(!el)return; el.addEventListener('pointerup',fn); el.addEventListener('click',fn); };
-bind(m.left,()=>{ if(!paused && !collides(-1,0,active.shape)){ active.x--; sfx.move(); }});
-bind(m.right,()=>{ if(!paused && !collides(1,0,active.shape)){ active.x++; sfx.move(); }});
-bind(m.rotate,()=>{ if(!paused) tryRotate(1); });
-bind(m.soft,()=>{ if(!paused){ soft(); score++; updateUI(); }});
-bind(m.hard,()=>{ if(!paused) hard(); });
-bind(m.hold,()=>{ if(!paused) doHold(); });
+            // Evitar que el jugador se salga del canvas
+            if (player.x < 0) player.x = 0;
+            if (player.x + player.width > canvas.width) player.x = canvas.width - player.width;
+            if (player.y > canvas.height) player.y = canvas.height; // Caer al suelo
 
-/* Gestos canvas */
-let t0=null,lastTap=0;
-board.addEventListener('pointerdown',e=>{ t0={x:e.clientX,y:e.clientY,t:Date.now()}; if(Date.now()-lastTap<300){ if(!paused && started) hard(); } lastTap=Date.now(); });
-board.addEventListener('pointerup',e=>{
-  if(!t0) return;
-  const dx=e.clientX-t0.x, dy=e.clientY-t0.y, ax=Math.abs(dx), ay=Math.abs(dy), TH=22;
-  if(!started) return;
-  if(ax<TH && ay<TH){ if(!paused) tryRotate(1); }
-  else if(ax>ay){ if(!paused && !collides(dx>0?1:-1,0,active.shape)){ active.x+=dx>0?1:-1; sfx.move(); } }
-  else { if(!paused){ soft(); score++; updateUI(); } }
-  t0=null;
-});
+            render();
+        }
 
-/* ---------- Start robusto ---------- */
-function startGame(){
-  if(started) return;
-  startLayer.style.display='none';
-  started=true; paused=false; over=false;
-  reset(); updateUI();
-  // audio silenciado por defecto (evita bloqueos); el usuario puede activar Música
-  try{ initAudio(); if(!muted) startMusic(); }catch{}
-}
-const bindStart=el=>{ if(!el) return; el.addEventListener('pointerup',startGame,{passive:false}); el.addEventListener('click',startGame,{passive:false}); };
-bindStart(btnStart); bindStart(bigStart);
-btnPause.addEventListener('click',()=>{ if(over){ reset(); return; } paused=!paused; updateUI(); });
-btnReset.addEventListener('click',()=>reset());
-btnMute .addEventListener('click',()=>{ setMuted(!muted); if(!muted) startMusic(); });
-bigMute.addEventListener('click',()=>{ setMuted(!muted); if(!muted) startMusic(); });
+        // Función para dibujar en el canvas
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Limpiar el canvas
 
-/* Fallback: si no hay interacción, arranca solo a los 2s (audio mute) */
-setTimeout(()=>{ if(!started) startGame(); }, 2000);
+            // Dibujar el jugador
+            ctx.fillStyle = 'red';
+            ctx.fillRect(player.x, player.y, player.width, player.height);
 
-/* Kick off */
-requestAnimationFrame(loop);
-renderStats();
-})();
-</script>
+            // Dibujar las plataformas
+            ctx.fillStyle = 'green';
+            platforms.forEach(platform => {
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+            });
+        }
+
+        // Función para manejar las teclas presionadas
+        function keyDown(e) {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = true;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = true;
+            if (e.key === 'ArrowUp' || e.key === 'w') keys.up = true;
+        }
+
+        // Función para manejar las teclas soltadas
+        function keyUp(e) {
+            if (e.key === 'ArrowRight' || e.key === 'd') keys.right = false;
+            if (e.key === 'ArrowLeft' || e.key === 'a') keys.left = false;
+            if (e.key === 'ArrowUp' || e.key === 'w') keys.up = false;
+        }
+
+        // Función principal del juego
+        function gameLoop() {
+            update();
+            requestAnimationFrame(gameLoop); // Llamar al juego nuevamente
+        }
+
+        // Añadir event listeners para las teclas
+        document.addEventListener('keydown', keyDown);
+        document.addEventListener('keyup', keyUp);
+
+        // Iniciar el juego
+        gameLoop();
+    </script>
 </body>
 </html>
